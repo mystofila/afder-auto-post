@@ -74,7 +74,7 @@ print(f"URL image : {image_url_bg}")
 
 # Télécharger l'image
 urllib.request.urlretrieve(
-    "https://raw.githubusercontent.com/mystofila/afder-auto-post/main/logo.png",
+    "https://github.com/mystofila/afder-auto-post/raw/main/logo.png",
     "logo.png"
 )
 print("Logo téléchargé")
