@@ -4,11 +4,13 @@ import time
 import random
 import requests
 import textwrap
+import shutil
+import glob
+import io
 from PIL import Image, ImageDraw, ImageFont
 from google import genai
 import cloudinary
 import cloudinary.uploader
-import urllib.request
 
 # Config
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
@@ -58,70 +60,75 @@ response = client.models.generate_content(
 caption = response.text.strip()
 print(f"Caption générée : {caption}")
 
-# Images Unsplash libres de droit selon le thème
+# Télécharger l'image de fond
+headers = {"User-Agent": "Mozilla/5.0"}
 images_unsplash = [
-    "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=1080",  # main tendue
-    "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=1080",  # soutien
-    "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=1080",  # famille
-    "https://images.unsplash.com/photo-1544027993-37dbfe43562a?w=1080",     # espoir
-    "https://images.unsplash.com/photo-1516302752625-fcc3c50ae61f?w=1080",  # lumière
-    "https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=1080",  # entraide
-    "https://images.unsplash.com/photo-1542601906897-ecd9d9f4e01c?w=1080",  # nature espoir
-    "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=1080",  # chemin
+    "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=1080",
+    "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=1080",
+    "https://images.unsplash.com/photo-1544027993-37dbfe43562a?w=1080",
+    "https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=1080",
+    "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=1080",
+    "https://images.unsplash.com/photo-1516302752625-fcc3c50ae61f?w=1080",
+    "https://images.unsplash.com/photo-1542601906897-ecd9d9f4e01c?w=1080",
+    "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=1080",
 ]
 image_url_bg = random.choice(images_unsplash)
-print(f"URL image : {image_url_bg}")
+print(f"URL image fond : {image_url_bg}")
 
-# Télécharger l'image
-# Logo déjà disponible dans le repo via checkout
-import shutil
-import os
+r = requests.get(image_url_bg, headers=headers)
+with open("background.jpg", "wb") as f:
+    f.write(r.content)
+print("Image de fond téléchargée")
 
-if os.path.exists("logo.png"):
-    shutil.copy("logo.png", "logo.png")
-    print("Logo trouvé dans le repo")
+# Trouver le logo dans le repo
+logos = glob.glob("*.png") + glob.glob("*.PNG")
+print(f"Fichiers PNG trouvés : {logos}")
+logo_path = None
+if logos:
+    logo_path = logos[0]
+    print(f"Logo utilisé : {logo_path}")
 else:
-    print("Logo non trouvé, on continue sans")
+    print("Aucun logo trouvé, on continue sans")
 
-# Créer le visuel final avec Pillow
+# Créer le visuel final
 def create_post_image(caption_text, filename):
     W, H = 1080, 1080
 
-    # Charger et redimensionner l'image de fond
+    # Fond
     bg = Image.open("background.jpg").convert("RGB")
     bg = bg.resize((W, H))
 
-    # Overlay sombre pour lisibilité
+    # Overlay sombre
     overlay = Image.new("RGBA", (W, H), (0, 0, 0, 120))
     bg_rgba = bg.convert("RGBA")
     bg_rgba = Image.alpha_composite(bg_rgba, overlay)
     img = bg_rgba.convert("RGB")
     draw = ImageDraw.Draw(img)
 
-    # Charger le logo
-    try:
-        logo = Image.open("logo.png").convert("RGBA")
-        logo_size = 150
-        logo = logo.resize((logo_size, logo_size))
-        img.paste(logo, (40, 40), logo)
-        print("Logo ajouté")
-    except Exception as e:
-        print(f"Erreur logo : {e}")
+    # Logo en haut à gauche
+    if logo_path:
+        try:
+            logo = Image.open(logo_path).convert("RGBA")
+            logo_size = 150
+            logo = logo.resize((logo_size, logo_size))
+            img.paste(logo, (40, 40), logo)
+            print("Logo ajouté")
+        except Exception as e:
+            print(f"Erreur logo : {e}")
 
     # Bandeau coloré en bas
-    # Couleur selon le thème
     colors = [
-        (26, 42, 108),   # Bleu foncé
-        (45, 90, 160),   # Bleu moyen
-        (20, 80, 120),   # Bleu canard
-        (60, 30, 100),   # Violet foncé
-        (30, 100, 80),   # Vert foncé
+        (26, 42, 108),
+        (45, 90, 160),
+        (20, 80, 120),
+        (60, 30, 100),
+        (30, 100, 80),
     ]
     bandeau_color = random.choice(colors)
     bandeau_height = 140
     draw.rectangle([0, H - bandeau_height, W, H], fill=bandeau_color)
 
-    # Texte dans le bandeau
+    # Polices
     try:
         font_bandeau = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 44)
         font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 28)
@@ -129,7 +136,7 @@ def create_post_image(caption_text, filename):
         font_bandeau = ImageFont.load_default()
         font_small = ImageFont.load_default()
 
-    # Titre dans le bandeau (première ligne du caption)
+    # Titre dans le bandeau
     titre = caption_text.split(".")[0].strip()[:50]
     wrapped = textwrap.wrap(titre, width=30)
     y_pos = H - bandeau_height + 20
@@ -139,7 +146,7 @@ def create_post_image(caption_text, filename):
         draw.text(((W - w) / 2, y_pos), line, font=font_bandeau, fill="white")
         y_pos += 52
 
-    # Mention "image générée par IA" en bas à droite
+    # Mention IA en bas à droite
     mention = "image generee par IA"
     bbox = draw.textbbox((0, 0), mention, font=font_small)
     w = bbox[2] - bbox[0]
