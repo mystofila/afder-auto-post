@@ -175,9 +175,11 @@ print(f"Image uploadée : {image_url}")
 
 # Publier sur Facebook via l'endpoint pages feed
 publish_r = requests.post(
-    f"https://graph.facebook.com/v19.0/{FB_PAGE_ID}/feed",
+    f"https://graph.facebook.com/v19.0/{FB_PAGE_ID}/photos",
     data={
-        "message": caption,
+        "url": image_url,
+        "caption": caption,
+        "published": "true",
         "access_token": FB_TOKEN
     }
 )
