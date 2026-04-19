@@ -70,22 +70,23 @@ response_img = client.models.generate_content(
 image_prompt = response_img.text.strip()
 print(f"Prompt image : {image_prompt}")
 
-# Générer l'image via Pollinations (gratuit, sans clé)
-import urllib.parse
-prompt_encoded = urllib.parse.quote(image_prompt)
-image_url_pollinations = f"https://image.pollinations.ai/prompt/{prompt_encoded}?width=1080&height=1080&nologo=true"
-print(f"URL image : {image_url_pollinations}")
+# Images Unsplash libres de droit selon le thème
+images_unsplash = [
+    "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=1080",  # main tendue
+    "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=1080",  # soutien
+    "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=1080",  # famille
+    "https://images.unsplash.com/photo-1544027993-37dbfe43562a?w=1080",     # espoir
+    "https://images.unsplash.com/photo-1516302752625-fcc3c50ae61f?w=1080",  # lumière
+    "https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=1080",  # entraide
+    "https://images.unsplash.com/photo-1542601906897-ecd9d9f4e01c?w=1080",  # nature espoir
+    "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=1080",  # chemin
+]
+image_url_bg = random.choice(images_unsplash)
+print(f"URL image : {image_url_bg}")
 
 # Télécharger l'image
-urllib.request.urlretrieve(image_url_pollinations, "background.jpg")
+urllib.request.urlretrieve(image_url_bg, "background.jpg")
 print("Image téléchargée")
-
-# Charger le logo
-urllib.request.urlretrieve(
-    "https://raw.githubusercontent.com/mystofila/afder-auto-post/main/sans%20back.png",
-    "logo.png"
-)
-print("Logo téléchargé")
 
 # Créer le visuel final avec Pillow
 def create_post_image(caption_text, filename):
