@@ -73,11 +73,15 @@ image_url_bg = random.choice(images_unsplash)
 print(f"URL image : {image_url_bg}")
 
 # Télécharger l'image
-urllib.request.urlretrieve(
-    "https://github.com/mystofila/afder-auto-post/raw/main/logo.png",
-    "logo.png"
-)
-print("Logo téléchargé")
+# Logo déjà disponible dans le repo via checkout
+import shutil
+import os
+
+if os.path.exists("logo.png"):
+    shutil.copy("logo.png", "logo.png")
+    print("Logo trouvé dans le repo")
+else:
+    print("Logo non trouvé, on continue sans")
 
 # Créer le visuel final avec Pillow
 def create_post_image(caption_text, filename):
