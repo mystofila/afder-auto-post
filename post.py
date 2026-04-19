@@ -155,4 +155,4 @@ def create_post_image(caption_text, filename):
 create_post_image(caption, "post.jpg")
 
 # Uploader sur Cloudinary
-result = cloudinary.uploader.upload("post.jpg"
+result = cloudinary.uploader.upload("post.jpg")
