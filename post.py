@@ -162,12 +162,11 @@ result = cloudinary.uploader.upload("post.jpg")
 image_url = result["secure_url"]
 print(f"Image uploadée : {image_url}")
 
-# Publier sur Facebook
+# Publier sur Facebook via l'endpoint pages feed
 publish_r = requests.post(
-    f"https://graph.facebook.com/v19.0/{FB_PAGE_ID}/photos",
+    f"https://graph.facebook.com/v19.0/{FB_PAGE_ID}/feed",
     data={
-        "url": image_url,
-        "caption": caption,
+        "message": caption,
         "access_token": FB_TOKEN
     }
 )
