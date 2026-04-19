@@ -58,18 +58,6 @@ response = client.models.generate_content(
 caption = response.text.strip()
 print(f"Caption générée : {caption}")
 
-# Générer le prompt image
-prompt_image_gen = f"""Génère un prompt en anglais pour une image illustrative et émotionnelle sur : {theme}
-Style : illustration douce, tons bleus et gris, pas de texte dans l'image, style moderne
-Réponds UNIQUEMENT avec le prompt en anglais, max 50 mots"""
-
-response_img = client.models.generate_content(
-    model="gemma-3-27b-it",
-    contents=prompt_image_gen
-)
-image_prompt = response_img.text.strip()
-print(f"Prompt image : {image_prompt}")
-
 # Images Unsplash libres de droit selon le thème
 images_unsplash = [
     "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=1080",  # main tendue
