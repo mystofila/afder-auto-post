@@ -73,8 +73,11 @@ image_url_bg = random.choice(images_unsplash)
 print(f"URL image : {image_url_bg}")
 
 # Télécharger l'image
-urllib.request.urlretrieve(image_url_bg, "background.jpg")
-print("Image téléchargée")
+urllib.request.urlretrieve(
+    "https://raw.githubusercontent.com/mystofila/afder-auto-post/main/sans%20back.png",
+    "logo.png"
+)
+print("Logo téléchargé")
 
 # Créer le visuel final avec Pillow
 def create_post_image(caption_text, filename):
