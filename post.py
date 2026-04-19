@@ -148,3 +148,17 @@ create_post_image(caption, "post.jpg")
 
 # Uploader sur Cloudinary
 result = cloudinary.uploader.upload("post.jpg")
+image_url = result["secure_url"]
+print(f"Image uploadée : {image_url}")
+
+# Publier sur Facebook
+publish_r = requests.post(
+    f"https://graph.facebook.com/v19.0/{FB_PAGE_ID}/photos",
+    data={
+        "url": image_url,
+        "caption": caption,
+        "access_token": FB_TOKEN
+    }
+)
+print(f"Status : {publish_r.status_code}")
+print(f"Publication : {publish_r.json()}")
