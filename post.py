@@ -148,7 +148,7 @@ def create_post_image(caption_text, filename):
         font_small = ImageFont.load_default()
 
     # Titre dans le bandeau
-   titre = caption_text.split(".")[0].strip()[:120]
+    titre = caption_text.split(".")[0].strip()[:120]
     wrapped = textwrap.wrap(titre, width=40)
     y_pos = H - bandeau_height + 20
     for line in wrapped[:2]:
