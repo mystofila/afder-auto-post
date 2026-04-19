@@ -157,12 +157,6 @@ def create_post_image(caption_text, filename):
         draw.text(((W - w) / 2, y_pos), line, font=font_bandeau, fill="white")
         y_pos += 52
 
-    # Mention IA en bas à droite
-    mention = "image generee par IA"
-    bbox = draw.textbbox((0, 0), mention, font=font_small)
-    w = bbox[2] - bbox[0]
-    draw.text((W - w - 20, H - 35), mention, font=font_small, fill=(200, 200, 200))
-
     img.save(filename, quality=95)
     print(f"Image créée : {filename}")
 
