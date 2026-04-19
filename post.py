@@ -14,8 +14,18 @@ import cloudinary.uploader
 
 # Config
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
-FB_TOKEN = os.environ["FB_PAGE_TOKEN"]
-FB_PAGE_ID = os.environ["FB_PAGE_ID"]
+FB_USER_TOKEN = os.environ["FB_PAGE_TOKEN"]
+FB_APP_ID = os.environ["FB_APP_ID"]
+FB_APP_SECRET = os.environ["FB_APP_SECRET"]
+
+# Échanger contre un token longue durée puis token de page
+r1 = requests.get(f"https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id={FB_APP_ID}&client_secret={FB_APP_SECRET}&fb_exchange_token={FB_USER_TOKEN}")
+long_token = r1.json()["access_token"]
+
+r2 = requests.get(f"https://graph.facebook.com/v19.0/me/accounts?access_token={long_token}")
+pages = r2.json()["data"]
+FB_TOKEN = next(p["access_token"] for p in pages if p["id"] == FB_PAGE_ID)
+print("Token de page récupéré !")
 
 cloudinary.config(
     cloud_name=os.environ["CLOUDINARY_CLOUD_NAME"],
