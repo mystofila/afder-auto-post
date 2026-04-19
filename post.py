@@ -17,6 +17,7 @@ GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 FB_USER_TOKEN = os.environ["FB_PAGE_TOKEN"]
 FB_APP_ID = os.environ["FB_APP_ID"]
 FB_APP_SECRET = os.environ["FB_APP_SECRET"]
+FB_PAGE_ID = os.environ["FB_PAGE_ID"]
 
 # Échanger contre un token longue durée puis token de page
 r1 = requests.get(f"https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id={FB_APP_ID}&client_secret={FB_APP_SECRET}&fb_exchange_token={FB_USER_TOKEN}")
