@@ -6,11 +6,12 @@ import requests
 import textwrap
 import shutil
 import glob
-import io
+import base64
 from PIL import Image, ImageDraw, ImageFont
 from google import genai
 import cloudinary
 import cloudinary.uploader
+from nacl import encoding, public
 
 # Config
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
@@ -18,21 +19,57 @@ FB_USER_TOKEN = os.environ["FB_PAGE_TOKEN"]
 FB_APP_ID = os.environ["FB_APP_ID"]
 FB_APP_SECRET = os.environ["FB_APP_SECRET"]
 FB_PAGE_ID = os.environ["FB_PAGE_ID"]
-
-# Échanger contre un token longue durée puis token de page
-r1 = requests.get(f"https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id={FB_APP_ID}&client_secret={FB_APP_SECRET}&fb_exchange_token={FB_USER_TOKEN}")
-long_token = r1.json()["access_token"]
-
-r2 = requests.get(f"https://graph.facebook.com/v19.0/me/accounts?access_token={long_token}")
-pages = r2.json()["data"]
-FB_TOKEN = next(p["access_token"] for p in pages if p["id"] == FB_PAGE_ID)
-print("Token de page récupéré !")
+GH_TOKEN = os.environ["GH_TOKEN"]
 
 cloudinary.config(
     cloud_name=os.environ["CLOUDINARY_CLOUD_NAME"],
     api_key=os.environ["CLOUDINARY_API_KEY"],
     api_secret=os.environ["CLOUDINARY_API_SECRET"]
 )
+
+# Échanger token court contre token long (60 jours)
+r1 = requests.get(
+    f"https://graph.facebook.com/v19.0/oauth/access_token",
+    params={
+        "grant_type": "fb_exchange_token",
+        "client_id": FB_APP_ID,
+        "client_secret": FB_APP_SECRET,
+        "fb_exchange_token": FB_USER_TOKEN
+    }
+)
+long_token = r1.json()["access_token"]
+print("Token long récupéré !")
+
+# Récupérer le token de page permanent
+r2 = requests.get(
+    f"https://graph.facebook.com/v19.0/me/accounts",
+    params={"access_token": long_token}
+)
+pages = r2.json()["data"]
+FB_TOKEN = next(p["access_token"] for p in pages if p["id"] == FB_PAGE_ID)
+print("Token de page permanent récupéré !")
+
+# Sauvegarder le token de page dans GitHub
+repo = "mystofila/afder-auto-post"
+pub_r = requests.get(
+    f"https://api.github.com/repos/{repo}/actions/secrets/public-key",
+    headers={"Authorization": f"token {GH_TOKEN}"}
+)
+pub_data = pub_r.json()
+pub_key = pub_data["key"]
+key_id = pub_data["key_id"]
+
+public_key_obj = public.PublicKey(pub_key.encode(), encoding.Base64Encoder())
+sealed_box = public.SealedBox(public_key_obj)
+encrypted = sealed_box.encrypt(FB_TOKEN.encode())
+encrypted_b64 = base64.b64encode(encrypted).decode()
+
+requests.put(
+    f"https://api.github.com/repos/{repo}/actions/secrets/FB_PAGE_TOKEN",
+    headers={"Authorization": f"token {GH_TOKEN}"},
+    json={"encrypted_value": encrypted_b64, "key_id": key_id}
+)
+print("Token permanent sauvegardé dans GitHub !")
 
 # Générer le contenu avec Gemini
 client = genai.Client(api_key=GEMINI_API_KEY)
@@ -60,7 +97,7 @@ IMPORTANT :
 - Une phrase d'accroche forte
 - Un message de soutien ou d'espoir
 - 3 hashtags français pertinents
-- Maximum 200 caractères au total
+- Maximum 400 caractères au total
 - Pas d'emoji
 - Réponds UNIQUEMENT avec le texte du post, rien d'autre"""
 
@@ -95,11 +132,13 @@ print("Image de fond téléchargée")
 logos = glob.glob("*.png") + glob.glob("*.PNG")
 print(f"Fichiers PNG trouvés : {logos}")
 logo_path = None
-if logos:
+for logo in logos:
+    if "logo" in logo.lower():
+        logo_path = logo
+        break
+if not logo_path and logos:
     logo_path = logos[0]
-    print(f"Logo utilisé : {logo_path}")
-else:
-    print("Aucun logo trouvé, on continue sans")
+print(f"Logo utilisé : {logo_path}")
 
 # Créer le visuel final
 def create_post_image(caption_text, filename):
@@ -120,8 +159,7 @@ def create_post_image(caption_text, filename):
     if logo_path:
         try:
             logo = Image.open(logo_path).convert("RGBA")
-            logo_size = 150
-            logo = logo.resize((logo_size, logo_size))
+            logo = logo.resize((150, 150))
             img.paste(logo, (40, 40), logo)
             print("Logo ajouté")
         except Exception as e:
@@ -136,22 +174,22 @@ def create_post_image(caption_text, filename):
         (30, 100, 80),
     ]
     bandeau_color = random.choice(colors)
-    bandeau_height = 140
+    bandeau_height = 200
     draw.rectangle([0, H - bandeau_height, W, H], fill=bandeau_color)
 
     # Polices
     try:
-        font_bandeau = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 44)
+        font_bandeau = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 36)
         font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 28)
     except:
         font_bandeau = ImageFont.load_default()
         font_small = ImageFont.load_default()
 
-    # Titre dans le bandeau
+    # Texte dans le bandeau
     titre = caption_text.split(".")[0].strip()[:120]
     wrapped = textwrap.wrap(titre, width=40)
     y_pos = H - bandeau_height + 20
-    for line in wrapped[:2]:
+    for line in wrapped[:3]:
         bbox = draw.textbbox((0, 0), line, font=font_bandeau)
         w = bbox[2] - bbox[0]
         draw.text(((W - w) / 2, y_pos), line, font=font_bandeau, fill="white")
@@ -167,7 +205,7 @@ result = cloudinary.uploader.upload("post.jpg")
 image_url = result["secure_url"]
 print(f"Image uploadée : {image_url}")
 
-# Publier sur Facebook via l'endpoint pages feed
+# Publier sur Facebook
 publish_r = requests.post(
     f"https://graph.facebook.com/v19.0/{FB_PAGE_ID}/photos",
     data={
