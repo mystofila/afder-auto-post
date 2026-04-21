@@ -26,6 +26,8 @@ cloudinary.config(
     api_key=os.environ["CLOUDINARY_API_KEY"],
     api_secret=os.environ["CLOUDINARY_API_SECRET"]
 )
+FB_TOKEN = os.environ["FB_PAGE_TOKEN"]
+print("Token de page récupéré !")
 
 # Sauvegarder le token de page dans GitHub
 repo = "mystofila/afder-auto-post"
