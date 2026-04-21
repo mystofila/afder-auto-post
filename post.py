@@ -27,28 +27,6 @@ cloudinary.config(
     api_secret=os.environ["CLOUDINARY_API_SECRET"]
 )
 
-# Échanger token court contre token long (60 jours)
-r1 = requests.get(
-    f"https://graph.facebook.com/v19.0/oauth/access_token",
-    params={
-        "grant_type": "fb_exchange_token",
-        "client_id": FB_APP_ID,
-        "client_secret": FB_APP_SECRET,
-        "fb_exchange_token": FB_USER_TOKEN
-    }
-)
-long_token = r1.json()["access_token"]
-print("Token long récupéré !")
-
-# Récupérer le token de page permanent
-r2 = requests.get(
-    f"https://graph.facebook.com/v19.0/me/accounts",
-    params={"access_token": long_token}
-)
-pages = r2.json()["data"]
-FB_TOKEN = next(p["access_token"] for p in pages if p["id"] == FB_PAGE_ID)
-print("Token de page permanent récupéré !")
-
 # Sauvegarder le token de page dans GitHub
 repo = "mystofila/afder-auto-post"
 pub_r = requests.get(
