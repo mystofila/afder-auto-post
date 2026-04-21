@@ -150,12 +150,12 @@ def create_post_image(caption_text, filename):
     # Corps du texte (sans hashtags)
     corps = reste.split("#")[0].strip() if "#" in reste else reste
     if corps:
-        wrapped_corps = textwrap.wrap(corps, width=30)
-        for line in wrapped_corps[:4]:
+        wrapped_corps = textwrap.wrap(corps, width=40)
+        for line in wrapped_corps[:6]:
             bbox = draw.textbbox((0, 0), line, font=font_body)
             w = bbox[2] - bbox[0]
             draw.text(((W - w) / 2, y_pos), line, font=font_body, fill=(210, 225, 255))
-            y_pos += 56
+            y_pos += 44
 
     # Ligne et branding en bas
     draw.rectangle([60, H - 100, W - 60, H - 94], fill=palette["accent"])
