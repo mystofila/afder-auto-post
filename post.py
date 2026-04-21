@@ -51,7 +51,7 @@ IMPORTANT :
 - Une phrase d'accroche forte en premier, MAXIMUM 50 caractères, qui soit une phrase COMPLÈTE
 - Un message de soutien ou d'espoir
 - 3 hashtags français pertinents à la fin
-- Maximum 400 caractères au total
+- Maximum 300 caractères au total, corps du texte MAXIMUM 200 caractères
 - Pas d'emoji
 - Réponds UNIQUEMENT avec le texte du post, rien d'autre"""
 
@@ -150,8 +150,8 @@ def create_post_image(caption_text, filename):
     # Corps du texte (sans hashtags)
     corps = reste.split("#")[0].strip() if "#" in reste else reste
     if corps:
-        wrapped_corps = textwrap.wrap(corps, width=40)
-        for line in wrapped_corps[:6]:
+        wrapped_corps = textwrap.wrap(corps, width=50)
+        for line in wrapped_corps[:5]:
             bbox = draw.textbbox((0, 0), line, font=font_body)
             w = bbox[2] - bbox[0]
             draw.text(((W - w) / 2, y_pos), line, font=font_body, fill=(210, 225, 255))
