@@ -48,11 +48,10 @@ Génère un post Facebook bienveillant et inspirant sur ce thème : {theme}
 
 IMPORTANT :
 - Ton doux, empathique, sans jugement
-- Une phrase d'accroche forte en premier
+- Une phrase d'accroche forte en premier, MAXIMUM 50 caractères, qui soit une phrase COMPLÈTE
 - Un message de soutien ou d'espoir
 - 3 hashtags français pertinents à la fin
 - Maximum 400 caractères au total
-- Une phrase d'accroche forte en premier, MAXIMUM 50 caractères, qui soit une phrase COMPLÈTE
 - Pas d'emoji
 - Réponds UNIQUEMENT avec le texte du post, rien d'autre"""
 
@@ -138,13 +137,11 @@ def create_post_image(caption_text, filename):
     # Accroche en grand
     wrapped_accroche = textwrap.wrap(accroche, width=28)
     y_pos = 220
-    font_size = 58 if len(wrapped_accroche) <= 3 else 46
-font_title = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-wrapped_accroche = textwrap.wrap(accroche, width=28 if font_size == 58 else 32)
-
-for line in wrapped_accroche[:4]:  # max 4 lignes
-    ...
-    y_pos += 62
+    for line in wrapped_accroche[:4]:
+        bbox = draw.textbbox((0, 0), line, font=font_title)
+        w = bbox[2] - bbox[0]
+        draw.text(((W - w) / 2, y_pos), line, font=font_title, fill="white")
+        y_pos += 72
 
     # Ligne de séparation
     draw.rectangle([(W - 120) / 2, y_pos + 15, (W + 120) / 2, y_pos + 22], fill=palette["accent"])
