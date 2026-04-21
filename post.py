@@ -52,6 +52,8 @@ IMPORTANT :
 - Un message de soutien ou d'espoir
 - 3 hashtags français pertinents à la fin
 - Maximum 300 caractères au total, corps du texte MAXIMUM 200 caractères
+- Chaque phrase doit être COMPLÈTE, ne jamais couper une phrase en cours
+- Le texte doit se terminer par un point
 - Pas d'emoji
 - Réponds UNIQUEMENT avec le texte du post, rien d'autre"""
 
