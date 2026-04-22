@@ -84,10 +84,10 @@ prompt = f"""Tu es un expert en accompagnement des personnes dépendantes et de 
 Génère un post Facebook bienveillant sur ce thème : {theme}
 
 RÈGLES STRICTES :
-- UNE phrase d'accroche courte et forte (max 8 mots)
-- UNE phrase de corps courte (max 15 mots)
+- UNE phrase d'accroche courte et forte (max 12 mots)
+- UNE phrase de corps courte (max 50 mots)
 - 3 hashtags français à la fin
-- TOTAL maximum 150 caractères hors hashtags
+- TOTAL maximum 250 caractères hors hashtags
 - Pas d'emoji
 - Réponds UNIQUEMENT avec le texte, rien d'autre"""
 
@@ -149,7 +149,7 @@ def create_post_image(caption_text, filename):
 
     try:
         font_accroche = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 64)
-        font_corps = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 44)
+        font_corps = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 58)
         font_brand = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 34)
     except:
         font_accroche = ImageFont.load_default()
