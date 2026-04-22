@@ -14,7 +14,46 @@ import glob
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 FB_TOKEN = os.environ["FB_PAGE_TOKEN"]
 FB_PAGE_ID = os.environ["FB_PAGE_ID"]
+# Renouveler le token de page automatiquement
+from nacl import encoding, public
+import base64
 
+def save_token_to_github(new_token):
+    gh_token = os.environ["GH_TOKEN"]
+    repo = "mystofila/afder-auto-post"
+    pub_r = requests.get(
+        f"https://api.github.com/repos/{repo}/actions/secrets/public-key",
+        headers={"Authorization": f"token {gh_token}"}
+    )
+    pub_data = pub_r.json()
+    public_key_obj = public.PublicKey(pub_data["key"].encode(), encoding.Base64Encoder())
+    sealed_box = public.SealedBox(public_key_obj)
+    encrypted = sealed_box.encrypt(new_token.encode())
+    encrypted_b64 = base64.b64encode(encrypted).decode()
+    requests.put(
+        f"https://api.github.com/repos/{repo}/actions/secrets/FB_PAGE_TOKEN",
+        headers={"Authorization": f"token {gh_token}"},
+        json={"encrypted_value": encrypted_b64, "key_id": pub_data["key_id"]}
+    )
+    print("Token renouvelé et sauvegardé !")
+
+# Échanger contre un token longue durée (60 jours)
+r1 = requests.get(
+    "https://graph.facebook.com/v19.0/oauth/access_token",
+    params={
+        "grant_type": "fb_exchange_token",
+        "client_id": os.environ["FB_APP_ID"],
+        "client_secret": os.environ["FB_APP_SECRET"],
+        "fb_exchange_token": FB_TOKEN
+    }
+)
+if "access_token" in r1.json():
+    long_token = r1.json()["access_token"]
+    save_token_to_github(long_token)
+    FB_TOKEN = long_token
+    print("Token longue durée activé !")
+else:
+    print(f"Renouvellement impossible : {r1.json()}")
 cloudinary.config(
     cloud_name=os.environ["CLOUDINARY_CLOUD_NAME"],
     api_key=os.environ["CLOUDINARY_API_KEY"],
