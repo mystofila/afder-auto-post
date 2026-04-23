@@ -88,6 +88,7 @@ RÈGLES STRICTES :
 - UNE phrase de corps courte (max 50 mots)
 - 3 hashtags français à la fin
 - TOTAL maximum 250 caractères hors hashtags
+- UNE phrase de corps (max 12 mots, phrase COMPLETE avec point final)
 - Pas d'emoji
 - Réponds UNIQUEMENT avec le texte, rien d'autre"""
 
@@ -206,7 +207,7 @@ def create_post_image(caption_text, filename):
     # Corps
     if corps:
         lines_corps = wrap_text(corps, font_corps, ZONE)
-        for line in lines_corps[:4]:
+        for line in lines_corps[:6]:
             bbox = draw.textbbox((0, 0), line, font=font_corps)
             w = bbox[2] - bbox[0]
             draw.text(((W - w) / 2, y_pos), line, font=font_corps, fill=(210, 225, 255))
