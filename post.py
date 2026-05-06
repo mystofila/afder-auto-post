@@ -148,7 +148,7 @@ RÈGLES STRICTES :
 - Pas d'emoji
 - Réponds UNIQUEMENT avec le texte, rien d'autre"""
 
-    reponse = client.models.generate_content(model="gemma-3-27b-it", contents=prompt)
+    reponse = client.models.generate_content(model="gemma-4-26b-a4b-it", contents=prompt)
     caption = reponse.text.strip()
     print(f"Caption générée : {caption}")
     return caption
