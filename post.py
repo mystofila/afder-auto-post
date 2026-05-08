@@ -5,18 +5,18 @@ import base64
 import glob
 import requests
 from PIL import Image, ImageDraw, ImageFont
-from google import genai
+from openai import OpenAI
 import cloudinary
 import cloudinary.uploader
 from nacl import encoding, public
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 
-GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
-FB_TOKEN       = os.environ["FB_PAGE_TOKEN"]
-FB_PAGE_ID     = os.environ["FB_PAGE_ID"]
-GH_TOKEN       = os.environ["GH_TOKEN"]
-REPO           = "mystofila/afder-auto-post"
+KIMI_API_KEY = os.environ["KIMI_API_KEY"]
+FB_TOKEN     = os.environ["FB_PAGE_TOKEN"]
+FB_PAGE_ID   = os.environ["FB_PAGE_ID"]
+GH_TOKEN     = os.environ["GH_TOKEN"]
+REPO         = "mystofila/afder-auto-post"
 
 cloudinary.config(
     cloud_name  = os.environ["CLOUDINARY_CLOUD_NAME"],
@@ -31,9 +31,9 @@ def renouveler_token():
     r = requests.get(
         "https://graph.facebook.com/v19.0/oauth/access_token",
         params={
-            "grant_type":       "fb_exchange_token",
-            "client_id":        os.environ["FB_APP_ID"],
-            "client_secret":    os.environ["FB_APP_SECRET"],
+            "grant_type":        "fb_exchange_token",
+            "client_id":         os.environ["FB_APP_ID"],
+            "client_secret":     os.environ["FB_APP_SECRET"],
             "fb_exchange_token": FB_TOKEN
         }
     )
@@ -58,9 +58,9 @@ def _sauvegarder_secret_github(nom_secret, valeur):
     )
     pub_data = pub_r.json()
 
-    cle      = public.PublicKey(pub_data["key"].encode(), encoding.Base64Encoder())
-    boite    = public.SealedBox(cle)
-    chiffre  = base64.b64encode(boite.encrypt(valeur.encode())).decode()
+    cle     = public.PublicKey(pub_data["key"].encode(), encoding.Base64Encoder())
+    boite   = public.SealedBox(cle)
+    chiffre = base64.b64encode(boite.encrypt(valeur.encode())).decode()
 
     requests.put(
         f"https://api.github.com/repos/{REPO}/actions/secrets/{nom_secret}",
@@ -135,8 +135,11 @@ def choisir_theme():
 
 
 def generer_caption(theme):
-    """Génère le texte du post via Gemini."""
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    """Génère le texte du post via Kimi (Moonshot AI)."""
+    client = OpenAI(
+        api_key=KIMI_API_KEY,
+        base_url="https://api.moonshot.cn/v1"
+    )
     prompt = f"""Tu es un expert en accompagnement des personnes dépendantes et de leurs familles.
 Génère un post Facebook bienveillant sur ce thème : {theme}
 
@@ -148,8 +151,11 @@ RÈGLES STRICTES :
 - Pas d'emoji
 - Réponds UNIQUEMENT avec le texte, rien d'autre"""
 
-    reponse = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
-    caption = reponse.text.strip()
+    reponse = client.chat.completions.create(
+        model="moonshot-v1-8k",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    caption = reponse.choices[0].message.content.strip()
     print(f"Caption générée : {caption}")
     return caption
 
@@ -291,9 +297,9 @@ def publier(image_locale, caption, token):
 # ─── Point d'entrée ───────────────────────────────────────────────────────────
 
 def main():
-    token               = renouveler_token()
+    token                  = renouveler_token()
     theme, historique, sha = choisir_theme()
-    caption             = generer_caption(theme)
+    caption                = generer_caption(theme)
 
     sauvegarder_historique(theme, historique, sha)
 
