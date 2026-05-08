@@ -12,7 +12,7 @@ from nacl import encoding, public
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 
-KIMI_API_KEY = os.environ["KIMI_API_KEY"]
+DEEPSEEK_API_KEY = os.environ["DEEPSEEK_API_KEY"]
 FB_TOKEN     = os.environ["FB_PAGE_TOKEN"]
 FB_PAGE_ID   = os.environ["FB_PAGE_ID"]
 GH_TOKEN     = os.environ["GH_TOKEN"]
