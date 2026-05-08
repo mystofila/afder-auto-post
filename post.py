@@ -3,6 +3,7 @@ import json
 import random
 import base64
 import glob
+import time
 import requests
 from PIL import Image, ImageDraw, ImageFont
 from openai import OpenAI
@@ -138,13 +139,23 @@ RÈGLES STRICTES :
 - Pas d'emoji
 - Réponds UNIQUEMENT avec le texte, rien d'autre"""
 
-    reponse = client.chat.completions.create(
-        model    = "deepseek-chat",
-        messages = [{"role": "user", "content": prompt}]
-    )
-    caption = reponse.choices[0].message.content.strip()
-    print(f"Caption générée : {caption}")
-    return caption
+    for tentative in range(5):
+        try:
+            reponse = client.chat.completions.create(
+                model    = "deepseek-chat",
+                messages = [{"role": "user", "content": prompt}]
+            )
+            caption = reponse.choices[0].message.content.strip()
+            print(f"Caption générée : {caption}")
+            return caption
+        except Exception as e:
+            print(f"Tentative {tentative + 1}/5 échouée : {e}")
+            if tentative < 4:
+                attente = 15 * (tentative + 1)
+                print(f"Attente {attente}s avant nouvelle tentative...")
+                time.sleep(attente)
+
+    raise Exception("Deepseek indisponible après 5 tentatives.")
 
 # ─── Création de l'image ──────────────────────────────────────────────────────
 
