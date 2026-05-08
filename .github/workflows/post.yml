@@ -22,7 +22,7 @@ jobs:
 
       - name: Run post script
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          KIMI_API_KEY: ${{ secrets.KIMI_API_KEY }}
           FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
           FB_APP_ID: ${{ secrets.FB_APP_ID }}
