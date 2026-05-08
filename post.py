@@ -12,7 +12,7 @@ from nacl import encoding, public
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 
-DEEPSEEK_API_KEY = os.environ["DEEPSEEK_API_KEY"]
+KIMI_API_KEY = os.environ["KIMI_API_KEY"]
 FB_TOKEN     = os.environ["FB_PAGE_TOKEN"]
 FB_PAGE_ID   = os.environ["FB_PAGE_ID"]
 GH_TOKEN     = os.environ["GH_TOKEN"]
@@ -135,10 +135,10 @@ def choisir_theme():
 
 
 def generer_caption(theme):
-    """Génère le texte du post via Kimi (Moonshot AI)."""
+    """Génère le texte du post via Deepseek."""
     client = OpenAI(
-        api_key=KIMI_API_KEY,
-        base_url="https://api.moonshot.cn/v1"
+        api_key=DEEPSEEK_API_KEY,
+        base_url="https://api.deepseek.com"
     )
     prompt = f"""Tu es un expert en accompagnement des personnes dépendantes et de leurs familles.
 Génère un post Facebook bienveillant sur ce thème : {theme}
@@ -152,7 +152,7 @@ RÈGLES STRICTES :
 - Réponds UNIQUEMENT avec le texte, rien d'autre"""
 
     reponse = client.chat.completions.create(
-        model="moonshot-v1-8k",
+        model="deepseek-chat",
         messages=[{"role": "user", "content": prompt}]
     )
     caption = reponse.choices[0].message.content.strip()
