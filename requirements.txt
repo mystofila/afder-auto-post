@@ -3,3 +3,4 @@ pillow
 cloudinary
 pynacl
 requests
+beautifulsoup4
