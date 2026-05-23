@@ -6,14 +6,14 @@ import glob
 import requests
 from bs4 import BeautifulSoup
 from PIL import Image, ImageDraw, ImageFont
-from google import genai
+from openai import OpenAI
 import cloudinary
 import cloudinary.uploader
 from nacl import encoding, public
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 
-GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
+DEEPSEEK_API_KEY = os.environ["DEEPSEEK_API_KEY"]
 FB_TOKEN       = os.environ["FB_PAGE_TOKEN"]
 FB_PAGE_ID     = os.environ["FB_PAGE_ID"]
 GH_TOKEN       = os.environ["GH_TOKEN"]
@@ -141,7 +141,10 @@ def generer_caption(jft_data):
       → "la force du collectif", "le soutien du groupe", "l'entraide"
     - Ton bienveillant, inclusif, non-religieux
     """
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    client = OpenAI(
+        api_key  = DEEPSEEK_API_KEY,
+        base_url = "https://api.deepseek.com"
+    )
 
     prompt = f"""Tu es un rédacteur bienveillant pour AFDER (Association Française des Dépendants en Rétablissement).
 Voici la méditation "Juste pour aujourd'hui" du jour (en anglais) :
@@ -168,8 +171,11 @@ FORMAT DU POST :
 - Pas d'emoji
 - Réponds UNIQUEMENT avec le texte du post, rien d'autre"""
 
-    reponse = client.models.generate_content(model="gemma-3-27b-it", contents=prompt)
-    caption = reponse.text.strip()
+    reponse = client.chat.completions.create(
+        model    = "deepseek-chat",
+        messages = [{"role": "user", "content": prompt}]
+    )
+    caption = reponse.choices[0].message.content.strip()
     print(f"\nCaption générée :\n{caption}")
     return caption
 
