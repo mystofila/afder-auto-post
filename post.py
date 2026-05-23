@@ -3,31 +3,34 @@ import json
 import random
 import base64
 import glob
-import time
 import requests
+from bs4 import BeautifulSoup
 from PIL import Image, ImageDraw, ImageFont
-from openai import OpenAI
+from google import genai
 import cloudinary
 import cloudinary.uploader
 from nacl import encoding, public
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 
-DEEPSEEK_API_KEY = os.environ["DEEPSEEK_API_KEY"]
-FB_TOKEN         = os.environ["FB_PAGE_TOKEN"]
-FB_PAGE_ID       = os.environ["FB_PAGE_ID"]
-GH_TOKEN         = os.environ["GH_TOKEN"]
-REPO             = "mystofila/afder-auto-post"
+GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
+FB_TOKEN       = os.environ["FB_PAGE_TOKEN"]
+FB_PAGE_ID     = os.environ["FB_PAGE_ID"]
+GH_TOKEN       = os.environ["GH_TOKEN"]
+REPO           = "mystofila/afder-auto-post"
+
+JFT_URL        = "https://www.jftna.org/jft/"
 
 cloudinary.config(
-    cloud_name = os.environ["CLOUDINARY_CLOUD_NAME"],
-    api_key    = os.environ["CLOUDINARY_API_KEY"],
-    api_secret = os.environ["CLOUDINARY_API_SECRET"]
+    cloud_name  = os.environ["CLOUDINARY_CLOUD_NAME"],
+    api_key     = os.environ["CLOUDINARY_API_KEY"],
+    api_secret  = os.environ["CLOUDINARY_API_SECRET"]
 )
 
 # ─── Token Facebook ───────────────────────────────────────────────────────────
 
 def renouveler_token():
+    """Échange le token courant contre un token longue durée et le sauvegarde."""
     r = requests.get(
         "https://graph.facebook.com/v19.0/oauth/access_token",
         params={
@@ -41,6 +44,7 @@ def renouveler_token():
     if "access_token" not in data:
         print(f"Renouvellement impossible : {data}")
         return FB_TOKEN
+
     nouveau_token = data["access_token"]
     _sauvegarder_secret_github("FB_PAGE_TOKEN", nouveau_token)
     print("Token longue durée activé et sauvegardé.")
@@ -48,6 +52,7 @@ def renouveler_token():
 
 
 def _sauvegarder_secret_github(nom_secret, valeur):
+    """Chiffre et sauvegarde une valeur dans les secrets GitHub Actions."""
     headers  = {"Authorization": f"token {GH_TOKEN}"}
     pub_r    = requests.get(
         f"https://api.github.com/repos/{REPO}/actions/secrets/public-key",
@@ -63,99 +68,110 @@ def _sauvegarder_secret_github(nom_secret, valeur):
         json={"encrypted_value": chiffre, "key_id": pub_data["key_id"]}
     )
 
-# ─── Historique des thèmes ────────────────────────────────────────────────────
+# ─── Scraping JFT ─────────────────────────────────────────────────────────────
 
-def charger_historique():
-    r = requests.get(
-        f"https://api.github.com/repos/{REPO}/contents/state.json",
-        headers={"Authorization": f"token {GH_TOKEN}"}
-    )
-    if r.status_code == 200:
-        contenu = base64.b64decode(r.json()["content"]).decode()
-        data    = json.loads(contenu)
-        return data.get("used", []), r.json()["sha"]
-    return [], None
+def scraper_jft():
+    """
+    Récupère la méditation du jour depuis jftna.org/jft/.
 
+    Structure HTML de la page (stable depuis des années) :
+      <table> contenant des <tr> successifs :
+        - Date
+        - Titre de la méditation
+        - Thème / sous-titre
+        - Citation principale (entre guillemets)
+        - Texte de la méditation (plusieurs paragraphes)
+        - Référence (ex: "Basic Text, p. 84")
+        - "Just for today:" + pensée courte du jour
 
-def sauvegarder_historique(theme_utilise, historique, sha):
-    historique.append(theme_utilise)
-    historique = historique[-10:]
-    contenu = base64.b64encode(
-        json.dumps({"used": historique}, ensure_ascii=False).encode()
-    ).decode()
-    payload = {"message": "chore: màj thèmes utilisés", "content": contenu}
-    if sha:
-        payload["sha"] = sha
-    requests.put(
-        f"https://api.github.com/repos/{REPO}/contents/state.json",
-        headers={"Authorization": f"token {GH_TOKEN}"},
-        json=payload
-    )
-    print(f"Historique mis à jour — thème sauvegardé : {theme_utilise}")
+    Retourne un dict avec les clés :
+        date, titre, theme, citation, texte, reference, jft
+    """
+    r    = requests.get(JFT_URL, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+    r.raise_for_status()
+    soup = BeautifulSoup(r.text, "html.parser")
 
-# ─── Thèmes ───────────────────────────────────────────────────────────────────
+    # Toutes les cellules de contenu sont dans des <td> de la table principale
+    cellules = [td.get_text(separator=" ", strip=True) for td in soup.find_all("td")]
+    # On filtre les cellules vides
+    cellules = [c for c in cellules if c]
 
-THEMES = [
-    "le courage de demander de l'aide face à la dépendance",
-    "comment soutenir un proche en situation de dépendance",
-    "l'importance de ne pas rester seul face à l'addiction",
-    "les familles de personnes dépendantes ont besoin de soutien aussi",
-    "reprendre confiance en soi après une dépendance",
-    "l'entraide entre pairs dans le parcours de rétablissement",
-    "comment parler de la dépendance sans jugement",
-    "les rechutes font partie du chemin vers la guérison",
-    "trouver de l'espoir quand tout semble perdu",
-    "l'amour d'une famille peut aider à surmonter la dépendance",
-    "accepter ses limites est un acte de courage",
-    "le rétablissement est un chemin pas une destination",
-    "briser le silence autour de la dépendance",
-    "chaque jour sobre est une victoire",
-    "la honte n'a pas sa place dans le parcours de guérison",
-]
+    print(f"Cellules extraites ({len(cellules)}) :")
+    for i, c in enumerate(cellules):
+        print(f"  [{i}] {c[:80]}")
 
-# ─── Génération du contenu ────────────────────────────────────────────────────
+    # Mapping par position — la page JFT a une structure fixe :
+    # [0] date  [1] titre  [2] thème  [3] citation  [4..n-2] texte  [n-1] ref  [n] jft
+    if len(cellules) < 5:
+        raise ValueError(f"Structure JFT inattendue — seulement {len(cellules)} cellules")
 
-def choisir_theme():
-    historique, sha = charger_historique()
-    disponibles     = [t for t in THEMES if t not in historique] or THEMES
-    theme           = random.choice(disponibles)
-    print(f"Thème choisi : {theme}")
-    return theme, historique, sha
+    date      = cellules[0]
+    titre     = cellules[1]
+    theme     = cellules[2]
+    citation  = cellules[3]
+    # Le "Just for today:" final est souvent la dernière ou avant-dernière cellule
+    jft_ligne = next((c for c in reversed(cellules) if c.lower().startswith("just for today")), "")
+    reference = next((c for c in reversed(cellules) if "p." in c or "text" in c.lower()), "")
+    # Le corps = tout ce qui est entre citation et reference/jft
+    idx_debut = 4
+    idx_fin   = len(cellules) - (2 if jft_ligne and reference else 1)
+    texte     = " ".join(cellules[idx_debut:idx_fin]).strip()
 
+    jft_data = {
+        "date":      date,
+        "titre":     titre,
+        "theme":     theme,
+        "citation":  citation,
+        "texte":     texte,
+        "reference": reference,
+        "jft":       jft_ligne,
+    }
+    print(f"\nJFT extrait — Titre : {titre} | Thème : {theme}")
+    return jft_data
 
-def generer_caption(theme):
-    client = OpenAI(
-        api_key  = DEEPSEEK_API_KEY,
-        base_url = "https://api.deepseek.com"
-    )
-    prompt = f"""Tu es un expert en accompagnement des personnes dépendantes et de leurs familles.
-Génère un post Facebook bienveillant sur ce thème : {theme}
+# ─── Adaptation et génération du post ─────────────────────────────────────────
 
-RÈGLES STRICTES :
-- UNE phrase d'accroche courte et forte (max 12 mots)
-- UNE phrase de corps courte (max 12 mots, phrase COMPLÈTE avec point final)
-- 3 hashtags français à la fin
-- TOTAL maximum 250 caractères hors hashtags
+def generer_caption(jft_data):
+    """
+    Traduit et adapte la méditation JFT du jour en post Facebook AFDER.
+
+    Règles d'adaptation :
+    - "NA" / "Narcotiques Anonymes" → "AFDER" ou "notre association"
+    - Toute mention de Dieu, divinité, puissance supérieure, Higher Power
+      → "la force du collectif", "le soutien du groupe", "l'entraide"
+    - Ton bienveillant, inclusif, non-religieux
+    """
+    client = genai.Client(api_key=GEMINI_API_KEY)
+
+    prompt = f"""Tu es un rédacteur bienveillant pour AFDER (Association Française des Dépendants en Rétablissement).
+Voici la méditation "Juste pour aujourd'hui" du jour (en anglais) :
+
+TITRE : {jft_data['titre']}
+THÈME : {jft_data['theme']}
+CITATION : {jft_data['citation']}
+TEXTE : {jft_data['texte']}
+PENSÉE DU JOUR : {jft_data['jft']}
+
+Ta mission : créer un post Facebook en français, inspiré de cette méditation.
+
+RÈGLES D'ADAPTATION OBLIGATOIRES :
+1. Traduis et adapte librement — ne copie pas mot pour mot
+2. Remplace toute mention de "NA", "Narcotics Anonymous", "Narcotiques Anonymes" par "AFDER" ou "notre association"
+3. Remplace toute mention de "Dieu", "divinité", "puissance supérieure", "Higher Power", "God", "spiritual" par des formulations laïques : "la force du collectif", "le soutien du groupe", "l'entraide", "la communauté"
+4. Garde le message d'espoir et de rétablissement
+
+FORMAT DU POST :
+- UNE phrase d'accroche forte (max 12 mots)
+- UNE phrase de corps (max 15 mots, phrase COMPLÈTE avec point final)
+- La pensée du jour adaptée : "Juste pour aujourd'hui : [max 12 mots]"
+- 3 hashtags français pertinents
 - Pas d'emoji
-- Réponds UNIQUEMENT avec le texte, rien d'autre"""
+- Réponds UNIQUEMENT avec le texte du post, rien d'autre"""
 
-    for tentative in range(5):
-        try:
-            reponse = client.chat.completions.create(
-                model    = "deepseek-chat",
-                messages = [{"role": "user", "content": prompt}]
-            )
-            caption = reponse.choices[0].message.content.strip()
-            print(f"Caption générée : {caption}")
-            return caption
-        except Exception as e:
-            print(f"Tentative {tentative + 1}/5 échouée : {e}")
-            if tentative < 4:
-                attente = 15 * (tentative + 1)
-                print(f"Attente {attente}s avant nouvelle tentative...")
-                time.sleep(attente)
-
-    raise Exception("Deepseek indisponible après 5 tentatives.")
+    reponse = client.models.generate_content(model="gemma-3-27b-it", contents=prompt)
+    caption = reponse.text.strip()
+    print(f"\nCaption générée :\n{caption}")
+    return caption
 
 # ─── Création de l'image ──────────────────────────────────────────────────────
 
@@ -175,6 +191,7 @@ FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
 
 def trouver_logo():
+    """Cherche un fichier logo PNG dans le répertoire courant."""
     for f in glob.glob("*.png") + glob.glob("*.PNG"):
         if "logo" in f.lower():
             return f
@@ -193,6 +210,7 @@ def creer_image(caption, fichier_sortie):
     img  = Image.new("RGB", (W, H))
     draw = ImageDraw.Draw(img)
 
+    # Dégradé vertical
     c1, c2 = palette["bg1"], palette["bg2"]
     for y in range(H):
         t = y / H
@@ -201,18 +219,22 @@ def creer_image(caption, fichier_sortie):
         b = int(c1[2] + (c2[2] - c1[2]) * t)
         draw.line([(0, y), (W, y)], fill=(r, g, b))
 
+    # Éléments décoratifs
     draw.ellipse([800, -150, 1250, 300],  outline=palette["accent"], width=2)
     draw.ellipse([840, -110, 1210, 260],  outline=palette["accent"], width=1)
     draw.ellipse([-150, 780, 300, 1230],  outline=palette["accent"], width=2)
     draw.rectangle([0, 0, 8, H],          fill=palette["accent"])
 
+    # Polices
     try:
         f_accroche = ImageFont.truetype(FONT_BOLD,    64)
-        f_corps    = ImageFont.truetype(FONT_REGULAR, 58)
+        f_corps    = ImageFont.truetype(FONT_REGULAR, 52)
+        f_jft      = ImageFont.truetype(FONT_REGULAR, 44)
         f_brand    = ImageFont.truetype(FONT_BOLD,    34)
     except Exception:
-        f_accroche = f_corps = f_brand = ImageFont.load_default()
+        f_accroche = f_corps = f_jft = f_brand = ImageFont.load_default()
 
+    # Logo
     if logo:
         try:
             img_logo = Image.open(logo).convert("RGBA")
@@ -221,10 +243,19 @@ def creer_image(caption, fichier_sortie):
         except Exception as e:
             print(f"Erreur logo : {e}")
 
-    parties  = caption.split(".")
-    accroche = parties[0].strip()
-    reste    = ".".join(parties[1:]).strip() if len(parties) > 1 else ""
-    corps    = reste.split("#")[0].strip()
+    # Découpage du texte :
+    # ligne 1 = accroche (avant le premier ".")
+    # ligne 2 = corps (entre le 1er et 2ème ".")
+    # ligne 3 = "Juste pour aujourd'hui : ..." (commence par "Juste")
+    lignes_brutes = [l.strip() for l in caption.split("\n") if l.strip()]
+    hashtags = " ".join([l for l in lignes_brutes if l.startswith("#")])
+    contenu  = [l for l in lignes_brutes if not l.startswith("#")]
+
+    accroche  = contenu[0] if len(contenu) > 0 else ""
+    corps     = contenu[1] if len(contenu) > 1 else ""
+    jft_ligne = next((l for l in contenu if "juste pour" in l.lower()), "")
+    if not jft_ligne and len(contenu) > 2:
+        jft_ligne = contenu[2]
 
     def couper_texte(texte, police, largeur_max):
         mots, lignes, courante = texte.split(), [], ""
@@ -240,21 +271,36 @@ def creer_image(caption, fichier_sortie):
             lignes.append(courante)
         return lignes
 
-    y = 220
+    y = 200
+
+    # Accroche
     for ligne in couper_texte(accroche, f_accroche, ZONE)[:3]:
         w = draw.textbbox((0, 0), ligne, font=f_accroche)[2]
         draw.text(((W - w) / 2, y), ligne, font=f_accroche, fill="white")
-        y += 80
+        y += 78
 
-    draw.rectangle([(W - 120) / 2, y + 10, (W + 120) / 2, y + 18], fill=palette["accent"])
-    y += 55
+    # Séparateur
+    draw.rectangle([(W - 120) / 2, y + 12, (W + 120) / 2, y + 20], fill=palette["accent"])
+    y += 58
 
+    # Corps
     if corps:
-        for ligne in couper_texte(corps, f_corps, ZONE)[:6]:
+        for ligne in couper_texte(corps, f_corps, ZONE)[:4]:
             w = draw.textbbox((0, 0), ligne, font=f_corps)[2]
             draw.text(((W - w) / 2, y), ligne, font=f_corps, fill=(210, 225, 255))
-            y += 60
+            y += 62
 
+    # "Juste pour aujourd'hui"
+    if jft_ligne:
+        y += 20
+        draw.rectangle([(W - 120) / 2, y, (W + 120) / 2, y + 2], fill=palette["accent"])
+        y += 20
+        for ligne in couper_texte(jft_ligne, f_jft, ZONE)[:3]:
+            w = draw.textbbox((0, 0), ligne, font=f_jft)[2]
+            draw.text(((W - w) / 2, y), ligne, font=f_jft, fill=(255, 220, 160))
+            y += 54
+
+    # Branding
     draw.rectangle([60, H - 100, W - 60, H - 94], fill=palette["accent"])
     brand = "@PairAidantPeerSupport"
     w     = draw.textbbox((0, 0), brand, font=f_brand)[2]
@@ -266,9 +312,11 @@ def creer_image(caption, fichier_sortie):
 # ─── Publication Facebook ─────────────────────────────────────────────────────
 
 def publier(image_locale, caption, token):
+    """Upload l'image sur Cloudinary puis publie sur Facebook."""
     result    = cloudinary.uploader.upload(image_locale)
     image_url = result["secure_url"]
     print(f"Image uploadée : {image_url}")
+
     r = requests.post(
         f"https://graph.facebook.com/v19.0/{FB_PAGE_ID}/photos",
         data={
@@ -283,10 +331,9 @@ def publier(image_locale, caption, token):
 # ─── Point d'entrée ───────────────────────────────────────────────────────────
 
 def main():
-    token                  = renouveler_token()
-    theme, historique, sha = choisir_theme()
-    caption                = generer_caption(theme)
-    sauvegarder_historique(theme, historique, sha)
+    token   = renouveler_token()
+    jft     = scraper_jft()
+    caption = generer_caption(jft)
     creer_image(caption, "post.jpg")
     publier("post.jpg", caption, token)
 
