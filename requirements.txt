@@ -1,6 +1,7 @@
-google-genai
+openai
 requests
 Pillow
 cloudinary
 PyNaCl
 beautifulsoup4
+
