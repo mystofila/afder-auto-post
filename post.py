@@ -173,11 +173,10 @@ def creer_image(caption, fichier_sortie):
 
     # Polices
     try:
-        f_label = ImageFont.truetype(FONT_REGULAR, 52)
-        f_texte = ImageFont.truetype(FONT_BOLD,    72)
-        f_brand = ImageFont.truetype(FONT_BOLD,    34)
+        f_texte = ImageFont.truetype(FONT_BOLD, 72)
+        f_brand = ImageFont.truetype(FONT_BOLD, 34)
     except Exception:
-        f_label = f_texte = f_brand = ImageFont.load_default()
+        f_texte = f_brand = ImageFont.load_default()
 
     # Logo
     if logo:
@@ -202,32 +201,12 @@ def creer_image(caption, fichier_sortie):
             lignes.append(courante)
         return lignes
 
-    # Separation label / phrase
-    if ":" in caption:
-        label, phrase = caption.split(":", 1)
-        label  = label.strip() + " :"
-        phrase = phrase.strip()
-    else:
-        label  = ""
-        phrase = caption
-
-    lignes_label  = couper_texte(label,  f_label, ZONE) if label else []
-    lignes_phrase = couper_texte(phrase, f_texte, ZONE)
-
-    # Centrage vertical
-    hauteur = len(lignes_label) * 62 + (30 if lignes_label else 0) + len(lignes_phrase) * 90
+    # Phrase entiere centree verticalement
+    lignes = couper_texte(caption, f_texte, ZONE)
+    hauteur = len(lignes) * 90
     y = (H - hauteur) // 2
 
-    # "Juste pour aujourd'hui :" — petit, couleur accent
-    for ligne in lignes_label:
-        w = draw.textbbox((0, 0), ligne, font=f_label)[2]
-        draw.text(((W - w) / 2, y), ligne, font=f_label, fill=palette["accent"])
-        y += 62
-    if lignes_label:
-        y += 30
-
-    # La phrase — grande, blanche, grasse
-    for ligne in lignes_phrase:
+    for ligne in lignes:
         w = draw.textbbox((0, 0), ligne, font=f_texte)[2]
         draw.text(((W - w) / 2, y), ligne, font=f_texte, fill="white")
         y += 90
