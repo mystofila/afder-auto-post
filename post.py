@@ -66,21 +66,29 @@ def _sauvegarder_secret_github(nom_secret, valeur):
 # ─── Scraping JFT ─────────────────────────────────────────────────────────────
 
 def scraper_jft():
-    r    = requests.get(JFT_URL, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+    r = requests.get(JFT_URL, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
     r.raise_for_status()
+
+    # Debug : afficher les 3000 premiers caracteres du HTML brut
+    print("=== HTML BRUT (3000 chars) ===")
+    print(r.text[:3000])
+    print("=== FIN HTML ===")
+
     soup = BeautifulSoup(r.text, "html.parser")
 
-    cellules = [td.get_text(separator=" ", strip=True) for td in soup.find_all("td")]
-    cellules = [c for c in cellules if c]
+    # Essayer td, puis p, puis div
+    blocs = soup.find_all("td") or soup.find_all("p") or soup.find_all("div")
+    cellules = [b.get_text(separator=" ", strip=True) for b in blocs]
+    cellules = [c for c in cellules if len(c) > 3]
 
-    print(f"Cellules extraites ({len(cellules)}) :")
+    print(f"Blocs extraits ({len(cellules)}) :")
     for i, c in enumerate(cellules):
-        print(f"  [{i}] {c[:80]}")
+        print(f"  [{i}] {c[:100]}")
 
-    if len(cellules) < 5:
-        raise ValueError(f"Structure JFT inattendue : {len(cellules)} cellules")
+    if not cellules:
+        raise ValueError("Aucun contenu extrait — voir HTML brut ci-dessus")
 
-    titre     = cellules[1]
+    titre     = cellules[1] if len(cellules) > 1 else cellules[0]
     jft_ligne = next((c for c in reversed(cellules) if c.lower().startswith("just for today")), cellules[-1])
 
     print(f"\nJFT extrait — Titre : {titre}")
