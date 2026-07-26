@@ -69,24 +69,12 @@ def scraper_jft():
     r = requests.get(JFT_URL, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
     r.raise_for_status()
 
-    # Debug : afficher les 3000 premiers caracteres du HTML brut
-    print("=== HTML BRUT (3000 chars) ===")
-    print(r.text[:3000])
-    print("=== FIN HTML ===")
-
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    # Essayer td, puis p, puis div
-    blocs = soup.find_all("td") or soup.find_all("p") or soup.find_all("div")
-    cellules = [b.get_text(separator=" ", strip=True) for b in blocs]
+    soup     = BeautifulSoup(r.text, "html.parser")
+    cellules = [td.get_text(separator=" ", strip=True) for td in soup.find_all("td")]
     cellules = [c for c in cellules if len(c) > 3]
 
-    print(f"Blocs extraits ({len(cellules)}) :")
-    for i, c in enumerate(cellules):
-        print(f"  [{i}] {c[:100]}")
-
     if not cellules:
-        raise ValueError("Aucun contenu extrait — voir HTML brut ci-dessus")
+        raise ValueError("Aucun contenu extrait")
 
     titre     = cellules[1] if len(cellules) > 1 else cellules[0]
     jft_ligne = next((c for c in reversed(cellules) if c.lower().startswith("just for today")), cellules[-1])
@@ -118,7 +106,7 @@ def generer_caption(jft_data):
     )
 
     reponse = client.chat.completions.create(
-        model    = "deepseek-chat",
+        model    = "deepseek-v4-flash",
         messages = [{"role": "user", "content": prompt}]
     )
     caption = reponse.choices[0].message.content.strip()
