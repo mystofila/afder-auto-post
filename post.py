@@ -66,44 +66,63 @@ def _sauvegarder_secret_github(nom_secret, valeur):
 # ─── Scraping JFT ─────────────────────────────────────────────────────────────
 
 def scraper_jft():
-    r = requests.get(JFT_URL, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
-    r.raise_for_status()
+    try:
+        r = requests.get(JFT_URL, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+        r.raise_for_status()
 
-    soup     = BeautifulSoup(r.text, "html.parser")
-    cellules = [td.get_text(separator=" ", strip=True) for td in soup.find_all("td")]
-    cellules = [c for c in cellules if len(c) > 3]
+        soup     = BeautifulSoup(r.text, "html.parser")
+        cellules = [td.get_text(separator=" ", strip=True) for td in soup.find_all("td")]
+        cellules = [c for c in cellules if len(c) > 3]
 
-    if not cellules:
-        raise ValueError("Aucun contenu extrait")
+        if not cellules:
+            raise ValueError("Aucun contenu extrait")
 
-    titre     = cellules[1] if len(cellules) > 1 else cellules[0]
-    jft_ligne = next((c for c in reversed(cellules) if c.lower().startswith("just for today")), cellules[-1])
+        titre     = cellules[1] if len(cellules) > 1 else cellules[0]
+        jft_ligne = next((c for c in reversed(cellules) if c.lower().startswith("just for today")), cellules[-1])
 
-    print(f"\nJFT extrait — Titre : {titre}")
-    print(f"Pensee du jour : {jft_ligne}")
-    return {"titre": titre, "jft": jft_ligne}
+        print(f"JFT extrait — Titre : {titre}")
+        print(f"Pensee du jour : {jft_ligne}")
+        return {"titre": titre, "jft": jft_ligne}
+
+    except Exception as e:
+        print(f"Scraping JFT impossible ({e}) — generation directe via DeepSeek")
+        return None
 
 # ─── Génération du post ───────────────────────────────────────────────────────
 
 def generer_caption(jft_data):
     client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
 
-    prompt = (
-        "Tu es un redacteur bienveillant pour AFDER "
-        "(Association Francaise des Dependants en Retablissement).\n"
-        "Voici la pensee du jour en anglais :\n\n"
-        f"TITRE : {jft_data['titre']}\n"
-        f"PENSEE DU JOUR : {jft_data['jft']}\n\n"
-        "Ta mission : traduire et adapter cette pensee en francais.\n\n"
-        "REGLES OBLIGATOIRES :\n"
-        "1. Commence TOUJOURS par \"Juste pour aujourd'hui :\"\n"
-        "2. Maximum 15 mots apres les deux points\n"
-        "3. Phrase COMPLETE avec point final\n"
-        "4. Remplace NA / Narcotics Anonymous par AFDER\n"
-        "5. Remplace Dieu / Higher Power / God / spiritual par "
-        "la force du collectif, l entraide ou la communaute\n"
-        "6. Reponds UNIQUEMENT avec la phrase, rien d autre"
-    )
+    if jft_data:
+        prompt = (
+            "Tu es un redacteur bienveillant pour AFDER "
+            "(Association Francaise des Dependants en Retablissement).\n"
+            "Voici la pensee du jour en anglais :\n\n"
+            f"TITRE : {jft_data['titre']}\n"
+            f"PENSEE DU JOUR : {jft_data['jft']}\n\n"
+            "Ta mission : traduire et adapter cette pensee en francais.\n\n"
+            "REGLES OBLIGATOIRES :\n"
+            "1. Commence TOUJOURS par \"Juste pour aujourd'hui :\"\n"
+            "2. Maximum 15 mots apres les deux points\n"
+            "3. Phrase COMPLETE avec point final\n"
+            "4. Remplace NA / Narcotics Anonymous par AFDER\n"
+            "5. Remplace Dieu / Higher Power / God / spiritual par "
+            "la force du collectif, l entraide ou la communaute\n"
+            "6. Reponds UNIQUEMENT avec la phrase, rien d autre"
+        )
+    else:
+        prompt = (
+            "Tu es un redacteur bienveillant pour AFDER "
+            "(Association Francaise des Dependants en Retablissement).\n"
+            "Genere une pensee du jour originale sur le retablissement, "
+            "l entraide ou l espoir pour des personnes en convalescence.\n\n"
+            "REGLES OBLIGATOIRES :\n"
+            "1. Commence TOUJOURS par \"Juste pour aujourd'hui :\"\n"
+            "2. Maximum 15 mots apres les deux points\n"
+            "3. Phrase COMPLETE avec point final\n"
+            "4. Ton bienveillant et laic, pas de reference religieuse\n"
+            "5. Reponds UNIQUEMENT avec la phrase, rien d autre"
+        )
 
     reponse = client.chat.completions.create(
         model    = "deepseek-v4-flash",
