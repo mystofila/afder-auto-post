@@ -5,19 +5,17 @@ import glob
 import requests
 from bs4 import BeautifulSoup
 from PIL import Image, ImageDraw, ImageFont
-from openai import OpenAI
 import cloudinary
 import cloudinary.uploader
 from nacl import encoding, public
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 
-DEEPSEEK_API_KEY = os.environ["DEEPSEEK_API_KEY"]
 FB_TOKEN         = os.environ["FB_PAGE_TOKEN"]
 FB_PAGE_ID       = os.environ["FB_PAGE_ID"]
 GH_TOKEN         = os.environ["GH_TOKEN"]
 REPO             = "mystofila/afder-auto-post"
-JFT_URL          = "https://www.jftna.org/jft/"
+JFT_URL          = "https://jpa.narcotiquesanonymes.org/"
 
 cloudinary.config(
     cloud_name = os.environ["CLOUDINARY_CLOUD_NAME"],
@@ -63,71 +61,64 @@ def _sauvegarder_secret_github(nom_secret, valeur):
         json={"encrypted_value": chiffre, "key_id": pub_data["key_id"]}
     )
 
-# ─── Scraping JFT ─────────────────────────────────────────────────────────────
+# ─── Scraping JFT (français) ──────────────────────────────────────────────────
 
 def scraper_jft():
-    try:
-        r = requests.get(JFT_URL, timeout=15, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36", "Accept-Language": "en-US,en;q=0.9", "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"})
-        r.raise_for_status()
+    """Scrape jpa.narcotiquesanonymes.org — citation déjà en français, pas d'IA."""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept-Language": "fr-FR,fr;q=0.9",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    }
+    r = requests.get(JFT_URL, timeout=15, headers=headers)
+    r.raise_for_status()
 
-        soup     = BeautifulSoup(r.text, "html.parser")
-        cellules = [td.get_text(separator=" ", strip=True) for td in soup.find_all("td")]
-        cellules = [c for c in cellules if len(c) > 3]
+    soup     = BeautifulSoup(r.text, "html.parser")
+    cellules = [td.get_text(separator=" ", strip=True) for td in soup.find_all("td")]
+    cellules = [c for c in cellules if len(c) > 3]
 
-        if not cellules:
-            raise ValueError("Aucun contenu extrait")
+    if not cellules:
+        cellules = [p.get_text(separator=" ", strip=True) for p in soup.find_all("p")]
+        cellules = [c for c in cellules if len(c) > 20]
 
-        titre     = cellules[1] if len(cellules) > 1 else cellules[0]
-        jft_ligne = next((c for c in reversed(cellules) if c.lower().startswith("just for today")), cellules[-1])
+    if not cellules:
+        body     = soup.get_text(separator="\n", strip=True)
+        cellules = [l for l in body.split("\n") if len(l) > 20]
 
-        print(f"JFT extrait — Titre : {titre}")
-        print(f"Pensee du jour : {jft_ligne}")
-        return {"titre": titre, "jft": jft_ligne}
+    print(f"Cellules extraites : {len(cellules)}")
+    for i, c in enumerate(cellules):
+        print(f"  [{i}] {c[:100]}")
 
-    except Exception as e:
-        print(f"Scraping JFT impossible ({e}) — generation directe via DeepSeek")
-        return None
+    if not cellules:
+        raise RuntimeError("Aucun contenu extrait du site JFT")
 
-# ─── Génération du post ───────────────────────────────────────────────────────
+    quote = next((c for c in reversed(cellules) if "juste pour aujourd" in c.lower()), None)
+    if not quote:
+        quote = cellules[-1]
 
-def generer_caption(jft_data):
-    client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
+    print(f"Citation : {quote[:120]}")
+    return quote.strip()
 
-    if jft_data:
-        prompt = (
-            "Tu es un redacteur bienveillant pour AFDER "
-            "(Association Francaise des Dependants en Retablissement).\n"
-            "Voici la pensee du jour en anglais :\n\n"
-            f"TITRE : {jft_data['titre']}\n"
-            f"PENSEE DU JOUR : {jft_data['jft']}\n\n"
-            "Ta mission : traduire et adapter cette pensee en francais.\n\n"
-            "REGLES OBLIGATOIRES :\n"
-            "1. Commence TOUJOURS par \"Juste pour aujourd'hui :\"\n"
-            "2. Maximum 15 mots apres les deux points\n"
-            "3. Phrase COMPLETE avec point final\n"
-            "4. Remplace NA / Narcotics Anonymous par AFDER\n"
-            "5. Remplace Dieu / Higher Power / God / spiritual par "
-            "la force du collectif, l entraide ou la communaute\n"
-            "6. Reponds UNIQUEMENT avec la phrase, rien d autre"
-        )
-    else:
-        prompt = (
-            "Tu es un redacteur bienveillant pour AFDER "
-            "(Association Francaise des Dependants en Retablissement).\n"
-            "Genere une pensee du jour originale sur le retablissement, "
-            "l entraide ou l espoir pour des personnes en convalescence.\n\n"
-            "REGLES OBLIGATOIRES :\n"
-            "1. Commence TOUJOURS par \"Juste pour aujourd'hui :\"\n"
-            "2. Maximum 15 mots apres les deux points\n"
-            "3. Phrase COMPLETE avec point final\n"
-            "4. Ton bienveillant et laic, pas de reference religieuse\n"
-            "5. Reponds UNIQUEMENT avec la phrase, rien d autre"
-        )
 
-    reponse = client.chat.completions.create(
-        model    = "deepseek-v4-flash",
-        messages = [{"role": "user", "content": prompt}]
-    )
+def generer_caption(caption_brute):
+    """Nettoie et adapte la citation française : NA -> AFDER, refs religieuses -> laïc."""
+    caption = caption_brute
+    remplacements = [
+        ("Narcotiques Anonymes", "AFDER"),
+        ("narcotiques anonymes", "AFDER"),
+        ("NA", "AFDER"),
+        ("Dieu", "la communauté"),
+        ("dieu", "la communauté"),
+        ("puissance supérieure", "la force du collectif"),
+        ("Puissance Supérieure", "la force du collectif"),
+        ("puissances supérieures", "la force du collectif"),
+        ("divinité", "l'entraide"),
+    ]
+    for ancien, nouveau in remplacements:
+        caption = caption.replace(ancien, nouveau)
+
+    if not caption.lower().startswith("juste pour aujourd"):
+        caption = "Juste pour aujourd'hui : " + caption
     caption = reponse.choices[0].message.content.strip()
 
     if not caption.lower().startswith("juste pour aujourd"):
@@ -256,9 +247,10 @@ def publier(image_locale, caption, token):
 # ─── Point d'entrée ───────────────────────────────────────────────────────────
 
 def main():
-    token   = renouveler_token()
-    jft     = scraper_jft()
-    caption = generer_caption(jft)
+    token         = renouveler_token()
+    citation_brut = scraper_jft()
+    caption       = generer_caption(citation_brut)
+    print(f"Caption finale : {caption}")
     creer_image(caption, "post.jpg")
     publier("post.jpg", caption, token)
 
