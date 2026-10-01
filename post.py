@@ -92,9 +92,11 @@ def scraper_jft():
     if not cellules:
         raise RuntimeError("Aucun contenu extrait du site JFT")
 
+    # Cherche la ligne "Juste pour aujourd'hui" ou prend la dernière cellule substantielle
     quote = next((c for c in reversed(cellules) if "juste pour aujourd" in c.lower()), None)
     if not quote:
-        quote = cellules[-1]
+        # Fallback : dernière cellule de plus de 40 chars (évite copyright etc.)
+        quote = next((c for c in reversed(cellules) if len(c) > 40), cellules[-1])
 
     print(f"Citation : {quote[:120]}")
     return quote.strip()
@@ -106,7 +108,6 @@ def generer_caption(caption_brute):
     remplacements = [
         ("Narcotiques Anonymes", "AFDER"),
         ("narcotiques anonymes", "AFDER"),
-        ("NA", "AFDER"),
         ("Dieu", "la communauté"),
         ("dieu", "la communauté"),
         ("puissance supérieure", "la force du collectif"),
@@ -119,12 +120,8 @@ def generer_caption(caption_brute):
 
     if not caption.lower().startswith("juste pour aujourd"):
         caption = "Juste pour aujourd'hui : " + caption
-    caption = reponse.choices[0].message.content.strip()
 
-    if not caption.lower().startswith("juste pour aujourd"):
-        caption = "Juste pour aujourd'hui : " + caption
-
-    print(f"\nCaption generee :\n{caption}")
+    print(f"Caption finale : {caption}")
     return caption
 
 # ─── Création de l'image ──────────────────────────────────────────────────────
