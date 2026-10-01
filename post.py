@@ -66,39 +66,40 @@ def _sauvegarder_secret_github(nom_secret, valeur):
 def scraper_jft():
     """Scrape jpa.narcotiquesanonymes.org — citation déjà en français, pas d'IA."""
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
         "Accept-Language": "fr-FR,fr;q=0.9",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
     }
     r = requests.get(JFT_URL, timeout=15, headers=headers)
+    print(f"HTTP {r.status_code} — {JFT_URL}")
     r.raise_for_status()
 
-    soup     = BeautifulSoup(r.text, "html.parser")
-    cellules = [td.get_text(separator=" ", strip=True) for td in soup.find_all("td")]
-    cellules = [c for c in cellules if len(c) > 3]
+    soup  = BeautifulSoup(r.text, "html.parser")
+    cells = [td.get_text(separator=" ", strip=True) for td in soup.find_all("td")]
+    cells = [c for c in cells if len(c) > 3]
 
-    if not cellules:
-        cellules = [p.get_text(separator=" ", strip=True) for p in soup.find_all("p")]
-        cellules = [c for c in cellules if len(c) > 20]
+    if not cells:
+        cells = [p.get_text(separator=" ", strip=True) for p in soup.find_all("p")]
+        cells = [c for c in cells if len(c) > 20]
 
-    if not cellules:
-        body     = soup.get_text(separator="\n", strip=True)
-        cellules = [l for l in body.split("\n") if len(l) > 20]
+    if not cells:
+        body  = soup.get_text(separator="\n", strip=True)
+        cells = [l for l in body.split("\n") if len(l) > 20]
 
-    print(f"Cellules extraites : {len(cellules)}")
-    for i, c in enumerate(cellules):
-        print(f"  [{i}] {c[:100]}")
+    print(f"Cellules extraites : {len(cells)}")
+    for i, c in enumerate(cells):
+        print(f"  [{i}] {c[:120]}")
 
-    if not cellules:
+    if not cells:
         raise RuntimeError("Aucun contenu extrait du site JFT")
 
-    # Cherche la ligne "Juste pour aujourd'hui" ou prend la dernière cellule substantielle
-    quote = next((c for c in reversed(cellules) if "juste pour aujourd" in c.lower()), None)
+    quote = next((c for c in reversed(cells) if "juste pour aujourd" in c.lower()), None)
     if not quote:
-        # Fallback : dernière cellule de plus de 40 chars (évite copyright etc.)
-        quote = next((c for c in reversed(cellules) if len(c) > 40), cellules[-1])
+        quote = next((c for c in reversed(cells) if "just for today" in c.lower()), None)
+    if not quote:
+        quote = cells[-1]
 
-    print(f"Citation : {quote[:120]}")
+    print(f"Citation finale : {quote[:120]}")
     return quote.strip()
 
 
